@@ -197,9 +197,19 @@ print(shipments_with_lateness[['shipID', 'plannedShipDate', 'actualShipDate', 'i
 **Question 1: Data Types and Date Handling**
 - What is the `dtype` of the `actualShipDate` series? How can you find out using code?
 - Why is it important that both `actualShipDate` and `plannedShipDate` have the same data type for comparison?
+```{python}
+print(shipments_df['actualShipDate'].dtype)
+```
+The dtype of the `actualShipDate` series is `datetime64[ns]`. I found this by running the code `print(shipments_df['actualShipDate'].dtype)`.
+It is important that both `actualShipDate` and `plannedShipDate` have the same data type for comparison because if they did not, we would not be able to compare them.
 
 **Question 2: String vs Date Comparison**
 - Can you give an example where comparing two dates as strings would yield unintuitive results, e.g. what happens if you try to compare "04-11-2025" and "05-20-2024" as strings vs as dates?
+```{python}
+print("04-11-2025" > "05-20-2024")
+print(datetime.strptime("04-11-2025", "%m-%d-%Y") > datetime.strptime("05-20-2024", "%m-%d-%Y"))
+```
+When comparing two dates as strings, the result is unintuitive because the strings are not in the correct format, they do not recognize the strings as dates. The correct format is `%m-%d-%Y`.
 
 **Question 3: Debug This Code**
 ```python
@@ -214,6 +224,21 @@ shipments_with_lateness = (
 )
 ```
 What's wrong with the `lateStatement` assignment and how would you fix it?
+
+The error is that the `lateStatement` assignment is not a valid column name. The correct column name is `late_statement`. The way I would fix it is to change the column name to `late_statement`.
+```{python}
+shipments_with_lateness = (
+    shipments_df
+    .assign(
+        is_late=lambda df: df['actualShipDate'] > df['plannedShipDate'],
+        days_late=lambda df: (df['actualShipDate'] - df['plannedShipDate']).dt.days,
+        late_statement=lambda df: df['actualShipDate'] > df['plannedShipDate']
+    )
+    .assign(
+        late_statement=lambda df: df['late_statement'].map({True: "Darn Shipment is Late", False: "Shipment is on Time"})
+    )
+)
+``` 
 :::
 
 #### Briefly Give Answers to the Discussion Questions In This Section
@@ -257,8 +282,17 @@ print(late_shipments.head())
 - What's the difference between using `.query('is_late == True')` and `[df['is_late'] == True]`?
 - Which approach is more readable and why?
 
+.query('is_late == True') uses string-based query syntax and is more readable
+[df['is_late'] == True] uses pandas boolean indexing syntax and is more explicit about the underlying operations
+First one is more readable because it reads like natural language, is similar to SQL, handles special characters automatically, and is more concise
+
 **Question 2: Additional Row Querying**
 - Can you show an example of using a variable like `late_threshold` to query rows for shipments that are at least `late_threshold` days late, e.g. what if you wanted to query rows for shipments that are at least 5 days late?
+```{python}
+late_threshold = 5
+late_shipments = shipments_with_lateness.query(f'days_late >= {late_threshold}')
+print(late_shipments.head())
+```
 :::
 
 #### Briefly Give Answers to the Discussion Questions In This Section
@@ -293,9 +327,18 @@ print("Remaining columns:", clean_shipments.columns.tolist())
 - What's the difference between `.drop(columns=['quantity'])` and `.filter()` with a list of columns you want to keep?
 - When would you choose to drop columns vs filter to keep specific columns?
 
+The key difference between .drop(columns=['quantity']) and .filter() is what they do with the specified columns.
+.drop(columns=['quantity']) removes the quantity column from the DataFrame.
+.filter() (when given a list of column names) keeps only the specified columns and excludes the rest.
+I would use .drop() when I want to permanently remove a column that isn’t needed for my analysis.
+
 **Question 2: Handling Missing Data**
 - What happens if you use `.dropna()` without specifying `subset`? How is this different from `.dropna(subset=['plannedShipDate', 'actualShipDate'])`?
 - Why might you want to be selective about which columns to check for missing values?
+
+If you use .dropna() without specifying `subset`, it will remove all rows with any missing values in any column.
+.dropna(subset=['plannedShipDate', 'actualShipDate']) removes rows with missing values only in the plannedShipDate and actualShipDate columns.
+I would use .dropna(subset=['plannedShipDate', 'actualShipDate']) when I want to remove rows with missing values only in the plannedShipDate and actualShipDate columns but not other columns.
 
 :::
 
@@ -331,9 +374,19 @@ print(sorted_by_lateness[['shipID', 'partID', 'days_late', 'is_late']].head(10))
 - What's the difference between `ascending=False` and `ascending=True` in sorting?
 - How would you sort by multiple columns (e.g., first by `is_late`, then by `days_late`)?
 
+The difference between `ascending=False` and `ascending=True` in sorting is that `ascending=False` sorts in descending order and `ascending=True` sorts in ascending order.
+To sort by multiple columns, you can use the `by` parameter. For example, to sort by `is_late` in descending order and then by `days_late` in ascending order, you can use the following code:
+```{python}
+sorted_by_lateness = clean_shipments.sort_values(by=['is_late', 'days_late'], ascending=[False, True])
+print(sorted_by_lateness.head(10))
+```
+
 **Question 2: Index Management**
 - Why do we use `.reset_index(drop=True)` after sorting?
 - What happens to the original index when you sort? Why might this be problematic?
+
+We use `.reset_index(drop=True)` after sorting to reset the index to be sequential.
+The original index is lost when you sort because the sorting operation changes the order of the rows, which breaks the existing index.
 
 :::
 
@@ -375,6 +428,9 @@ print(f"\nOn-time delivery rate: {on_time_rate:.1f}%")
 **Question 1: Boolean Aggregation**
 - Why does `sum()` work on boolean values? What does it count?
 
+The reason `sum()` works on boolean values is because boolean values are treated as 0s and 1s when performing arithmetic operations.
+When you sum a boolean series, it counts the number of True values.
+
 :::
 
 #### Briefly Give Answers to the Discussion Questions In This Section
@@ -411,8 +467,15 @@ print(shipments_with_category['prodCategory'].value_counts())
 - Why does your professor think we should use `how='left'` in most cases? 
 - How can you check if any shipments were lost during the merge?
 
+The reason we should use `how='left'` in most cases is because it preserves all the rows from the left DataFrame (shipments_df) and only joins the matching rows from the right DataFrame (product_line_df).
+This ensures that we don’t lose any shipments that don’t have a matching product category.
+
+
 **Question 2: Key Column Matching**
 - What happens if there are duplicate `partID` values in the `product_line_df`?
+
+If there are duplicate `partID` values in the `product_line_df`, the merge will result in a DataFrame with multiple rows for the same `partID`.
+This can cause issues with downstream operations that rely on the `partID` column, such as grouping or aggregating data.
 
 :::
 
@@ -452,8 +515,17 @@ print(service_by_category)
 - What does `.groupby('prodCategory')` actually do? How does it "split" the data?
 - Why do we need to use `.agg()` after grouping? What happens if you don't?
 
+`.groupby('prodCategory')` splits the data into groups based on the `prodCategory` column.
+It creates a new DataFrame for each unique value in the `prodCategory` column.
+We need to use `.agg()` after grouping to apply aggregate functions to each group.
+If you don't use `.agg()`, you will get a DataFrame with the same number of rows as the original DataFrame, but the values will be the same for each group.
+
 **Question 2: Multi-Level Grouping**
 - Explore grouping by `['shipID', 'prodCategory']`?  What question does this answer versus grouping by `'prodCategory'` alone?  (HINT: There may be many rows with identical shipID's due to a particular order having multiple partID's.)
+
+Grouping by `['shipID', 'prodCategory']` is more informative than grouping by `'prodCategory'` alone because it allows you to see the service level for each shipment and product category combination.
+This can help you identify shipments that are consistently late or on time, and product categories that are consistently late or on time.
+
 :::
 
 #### Briefly Give Answers to the Discussion Questions In This Section
@@ -498,6 +570,12 @@ print(f"Percentage with multiple categories: {multi_category_shipments['shipID']
 - What business question does this comprehensive analysis answer?
 - How does grouping by `['shipID', 'prodCategory']` differ from grouping by just `'prodCategory'`?
 - What insights can ZappTech's management gain from knowing the percentage of multi-category shipments?
+
+The analysis addresses the business question of how many shipments contain multiple product categories.
+Grouping by ['shipID', 'prodCategory'] instead of just 'prodCategory' provides more detailed insights by showing service levels for each unique shipment–category combination.
+This helps identify which shipments or product categories tend to be consistently late or on time.
+By understanding the percentage of multi-category shipments, ZappTech’s management can pinpoint performance patterns and target specific areas for improvement in shipping efficiency.
+
 :::
 
 #### Briefly Give Answers to the Discussion Questions In This Section
@@ -540,6 +618,84 @@ print(f"Percentage with multiple categories: {multi_category_shipments['shipID']
 - Support the insights from your discussion questions
 - Be appropriate for a business audience
 - Do not `echo` the code that creates the visualizations
+
+```{python}
+#| label: service-level-visualization
+#| echo: false
+#| fig-cap: "Service Level Performance by Product Category"
+#| fig-width: 10
+#| fig-height: 6
+
+# Calculate service level metrics by category for visualization
+service_level_by_category = (
+    shipments_with_category
+    .groupby('prodCategory')
+    .agg({
+        'is_late': ['count', 'sum', 'mean']
+    })
+    .round(3)
+)
+
+# Flatten column names
+service_level_by_category.columns = ['total_shipments', 'late_shipments', 'late_rate']
+service_level_by_category = service_level_by_category.reset_index()
+
+# Calculate on-time percentage
+service_level_by_category['on_time_rate'] = (1 - service_level_by_category['late_rate']) * 100
+
+# Create professional visualization
+plt.style.use('default')
+fig, ax = plt.subplots(figsize=(12, 8))
+
+# Create horizontal bar chart for better readability
+categories = service_level_by_category['prodCategory']
+on_time_rates = service_level_by_category['on_time_rate']
+total_shipments = service_level_by_category['total_shipments']
+
+# Color bars based on performance (green for good, orange for poor)
+colors = ['#2E8B57' if rate >= 90 else '#FF8C00' if rate >= 80 else '#DC143C' for rate in on_time_rates]
+
+bars = ax.barh(categories, on_time_rates, color=colors, alpha=0.8, edgecolor='black', linewidth=0.5)
+
+# Add value labels on bars
+for i, (bar, rate, total) in enumerate(zip(bars, on_time_rates, total_shipments)):
+    ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height()/2, 
+            f'{rate:.1f}%\n(n={total})', 
+            ha='left', va='center', fontweight='bold', fontsize=10)
+
+# Customize the plot
+ax.set_xlabel('On-Time Delivery Rate (%)', fontsize=12, fontweight='bold')
+ax.set_ylabel('Product Category', fontsize=12, fontweight='bold')
+ax.set_title('ZappTech Service Level Performance by Product Category', 
+             fontsize=14, fontweight='bold', pad=20)
+
+# Add reference lines
+ax.axvline(x=90, color='green', linestyle='--', alpha=0.7, label='Target: 90%')
+ax.axvline(x=80, color='orange', linestyle='--', alpha=0.7, label='Minimum: 80%')
+
+# Set x-axis limits and formatting
+ax.set_xlim(0, 105)
+ax.set_xticks(range(0, 101, 10))
+ax.grid(axis='x', alpha=0.3, linestyle='-', linewidth=0.5)
+
+# Add legend
+ax.legend(loc='lower right', frameon=True, fancybox=True, shadow=True)
+
+# Improve layout
+plt.tight_layout()
+
+# Add performance summary text box
+summary_text = f"""Performance Summary:
+• Average On-Time Rate: {on_time_rates.mean():.1f}%
+• Best Performing: {categories[on_time_rates.idxmax()]} ({on_time_rates.max():.1f}%)
+• Needs Attention: {categories[on_time_rates.idxmin()]} ({on_time_rates.min():.1f}%)
+• Categories Meeting 90% Target: {(on_time_rates >= 90).sum()}/{len(categories)}"""
+
+ax.text(0.02, 0.98, summary_text, transform=ax.transAxes, fontsize=10,
+        verticalalignment='top', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+
+plt.show()
+```
 
 ## Challenge Requirements 📋
 

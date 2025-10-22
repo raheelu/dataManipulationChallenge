@@ -645,7 +645,7 @@ service_level_by_category['on_time_rate'] = (1 - service_level_by_category['late
 
 # Create professional visualization
 plt.style.use('default')
-fig, ax = plt.subplots(figsize=(12, 8))
+fig, ax = plt.subplots(figsize=(7, 5))
 
 # Create horizontal bar chart for better readability
 categories = service_level_by_category['prodCategory']
